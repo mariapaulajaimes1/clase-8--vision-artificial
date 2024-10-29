@@ -1,71 +1,102 @@
-import streamlit as st
 import cv2
+import yolov5
+import streamlit as st
 import numpy as np
 import pandas as pd
-import yolov5
 
-# Cargar modelo de YOLOv5
-try:
-    model = yolov5.load('./yolov5s.pt')
-except Exception:
-    st.error("Error al cargar el modelo. Asegúrate de que el archivo yolov5s.pt esté en la carpeta.")
-    st.stop()
+# Cargar el modelo preentrenado
+model = yolov5.load('yolov5s.pt')
 
-# Configurar parámetros del modelo
-model.conf = 0.25
-model.iou = 0.45
+# Configuración de parámetros del modelo
+model.conf = 0.25  # Umbral de confianza NMS
+model.iou = 0.45   # Umbral de IoU NMS
 
-st.title("🖼️ Detección de Objetos en Imágenes")
+# Estilos personalizados
+st.markdown(
+    """
+    <style>
+    .title {
+        font-size: 40px;
+        color: #4B0082;
+        text-align: center;
+    }
+    .sidebar-title {
+        font-size: 24px;
+        color: #2F4F4F;
+    }
+    .sidebar-slider {
+        margin-bottom: 20px;
+    }
+    .data-table {
+        border: 2px solid #4B0082;
+        border-radius: 10px;
+        padding: 10px;
+        background-color: #f0f8ff;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# Título de la aplicación
+st.markdown('<h1 class="title">VEO VEEEOOO...🧐</h1>', unsafe_allow_html=True)
+st.markdown('<h2 class="title">Puedo detectar los objetos de tus imagenes</h2>', unsafe_allow_html=True)
+
+# Barra lateral para parámetros
 with st.sidebar:
-    st.header("⚙️ Parámetros de Configuración")
-    model.iou = st.slider('📏 IoU (Intersección sobre Unión)', 0.0, 1.0, model.iou)
-    st.write('**IoU seleccionado:**', model.iou)
-    model.conf = st.slider('🕵️‍♀️ Confianza', 0.0, 1.0, model.conf)
-    st.write('**Confianza seleccionada:**', model.conf)
+    st.markdown('<h2 class="sidebar-title">Parámetros de Configuración</h2>', unsafe_allow_html=True)
+    model.iou = st.slider('Seleccione el IoU', 0.0, 1.0, value=model.iou, key='iou', help='Ajusta el umbral de IoU para las detecciones')
+    st.write('**IoU:**', model.iou)
 
-picture = st.camera_input("📸 Capturar foto")
+    model.conf = st.slider('Seleccione el Confidence', 0.0, 1.0, value=model.conf, key='confidence', help='Ajusta el umbral de confianza para las detecciones')
+    st.write('**Confianza:**', model.conf)
+
+# Captura de imagen
+picture = st.camera_input("Capturar foto", label_visibility='visible')
 
 if picture:
     bytes_data = picture.getvalue()
     cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
 
-    # Redimensionar imagen si es muy grande
-    max_width = 800
-    height, width, _ = cv2_img.shape
-    if width > max_width:
-        scale = max_width / width
-        new_size = (max_width, int(height * scale))
-        cv2_img = cv2.resize(cv2_img, new_size)
-
-    # Realizar inferencia
+    # Realiza la inferencia
     results = model(cv2_img)
-    predictions = results.pred[0]
 
-    # Obtener resultados
-    boxes = predictions[:, :4]
+    # Procesa los resultados
+    predictions = results.pred[0]
+    boxes = predictions[:, :4] 
     scores = predictions[:, 4]
     categories = predictions[:, 5]
 
     col1, col2 = st.columns(2)
 
     with col1:
-        results.render()  # Renderiza las detecciones en la imagen
-        st.image(cv2_img, channels='BGR')
+        # Mostrar la imagen con detecciones
+        results.render()
+        st.image(cv2_img, channels='BGR', caption='Imagen con Detecciones', use_column_width=True)
 
     with col2:
-        st.header("📊 Resultados de Detección")
+        # Obtener nombres de las etiquetas
         label_names = model.names
         category_count = {}
+
         for category in categories:
             if category in category_count:
                 category_count[category] += 1
             else:
                 category_count[category] = 1        
 
-        data = []
+        data = []        
+        # Imprimir conteos de categorías y etiquetas
         for category, count in category_count.items():
-            label = label_names[int(category)]
+            label = label_names[int(category)]            
             data.append({"Categoría": label, "Cantidad": count})
         
-        data_df = pd.DataFrame(data)
-        st.dataframe(data_df.head(10))  # Mostrar solo las primeras 10 filas
+        data2 = pd.DataFrame(data)
+
+        # Agrupar los datos por categoría
+        df_sum = data2.groupby('Categoría')['Cantidad'].sum().reset_index()
+
+        # Mostrar la tabla de resultados
+        st.markdown('<div class="data-table">', unsafe_allow_html=True)
+        st.write(df_sum)
+        st.markdown('</div>', unsafe_allow_html=True)
