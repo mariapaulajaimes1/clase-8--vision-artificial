@@ -1,18 +1,20 @@
-import cv2
-import yolov5
 import streamlit as st
+import cv2
 import numpy as np
 import pandas as pd
+import yolov5  # Asegúrate de tener instalado YOLOv5 con: pip install yolov5
+import torch   # Asegúrate de tener torch instalado también
 
-# Cargar el modelo preentrenado
-model = yolov5.load('yolov5s.pt')
+# Cargar modelo de YOLOv5 desde un archivo local o desde la nube
+try:
+    model = yolov5.load('./yolov5s.pt')  # Cambia esta ruta si tienes el modelo en una ubicación específica
+except Exception:
+    st.error("Error al cargar el modelo. Asegúrate de que el archivo yolov5s.pt esté en la carpeta.")
+    st.stop()
 
 # Configurar parámetros del modelo
-model.conf = 0.25  # Umbral de confianza NMS
-model.iou = 0.45  # Umbral de IoU NMS
-model.agnostic = False  # NMS independiente de clases
-model.multi_label = False  # Etiquetas múltiples por caja
-model.max_det = 1000  # Máximo número de detecciones por imagen
+model.conf = 0.25  # Confianza de detección inicial
+model.iou = 0.45  # Umbral de IoU
 
 # Estilo general con CSS
 st.markdown(
@@ -100,5 +102,3 @@ if picture:
 
         # Mostrar los datos en un formato de tabla
         st.dataframe(df_sum)
-
-# Fin del código con emojis y estilo mejorado para una experiencia más visual e intuitiva
